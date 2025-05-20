@@ -32,36 +32,32 @@ from busca import(
 # === DOWNLOAD DE DATASET DO KAGGLE ===
 
 def download_dataset_from_kaggle():
-    os.environ['KAGGLE_USERNAME'] = os.getenv('KAGGLE_USERNAME')
-    os.environ['KAGGLE_KEY'] = os.getenv('KAGGLE_KEY')
+    dataset_zip_path = 'datasets/kaggle_dataset.zip'
+    dataset_folder = 'datasets'
 
-    api = KaggleApi()
-    api.authenticate()
+    # Cria pasta datasets, se não existir
+    if not os.path.exists(dataset_folder):
+        os.makedirs(dataset_folder)
 
-    dataset_dir = "datasets"
-    if not os.path.exists(dataset_dir):
-        os.makedirs(dataset_dir)
-
-    zip_path = os.path.join(dataset_dir, "kaggle_dataset.zip")
-    extracted_csv_path = None
-
-    if not os.path.exists(zip_path):
+    # Se o arquivo ZIP não existir, faz o download
+    if not os.path.isfile(dataset_zip_path):
         print("Baixando dataset do Kaggle...")
-        api.dataset_download_files("karinecerqueira/onde-tem", path=dataset_dir, unzip=False)
+        api = KaggleApi()
+        api.authenticate()
+        # Ajuste para seu dataset
+        api.dataset_download_files('karinecerqueira/onde-tem', path=dataset_folder, unzip=False)
 
-    # Descompactar e identificar automaticamente o .csv
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        for file in zip_ref.namelist():
-            if file.endswith(".csv"):
-                zip_ref.extract(file, dataset_dir)
-                extracted_csv_path = os.path.join(dataset_dir, file)
-                break
+    # Confirma que o arquivo ZIP existe antes de abrir
+    if not os.path.isfile(dataset_zip_path):
+        raise FileNotFoundError(f"Arquivo ZIP não encontrado após download: {dataset_zip_path}")
 
-    if extracted_csv_path:
-        print(f"CSV extraído para {extracted_csv_path}")
-        return extracted_csv_path
-    else:
-        raise FileNotFoundError("Nenhum arquivo CSV encontrado no zip do Kaggle.")
+    # Agora abre o ZIP
+    with zipfile.ZipFile(dataset_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(dataset_folder)
+
+    # Retorna o caminho do arquivo CSV esperado
+    csv_path = os.path.join(dataset_folder, 'onde-tem.csv')  # ajuste para o nome real do CSV no ZIP
+    return csv_path
 
 
 # === CARREGAMENTO DO DATAFRAME ===
