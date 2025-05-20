@@ -55,7 +55,6 @@ def startup_event():
     file_id = "1GR_CibmsSuSmxL-Fhd1tdQZmVLGGLNCy"
     data = carregar_csv_drive(file_id)
     print("Arquivo CSV carregado com sucesso.")
-    print(data.columns.tolist())
 
 # CORS
 app.add_middleware(
