@@ -3,8 +3,8 @@
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
 from typing import List, Optional
+import pandas as pd
 import gdown
 
 from graphics import (
@@ -15,46 +15,21 @@ from graphics import (
     dados_relacao_trabalho,
     dados_resumo_estatisticas
 )
-
 from models import(
     dados_idade_casos,
     dados_idade_por_animal,
     prever_casos_por_idade
 )
-
 from busca import(
     processar_acidente,
     obter_todos_os_postos
 )
-
-from fastapi import FastAPI
-import pandas as pd
-import requests
-from io import StringIO
-
-# Carregar o DataFrame
-#data = pd.read_csv('animais_peconhentos_SP_completo.csv')
+import os
 
 app = FastAPI()
 
-# Função para carregar o CSV usando gdown
-def carregar_csv_drive(file_id: str) -> pd.DataFrame:
-    url = f"https://drive.google.com/uc?id={file_id}"
-    output = "/tmp/arquivo.csv"  # Caminho temporário onde o arquivo será salvo
-    gdown.download(url, output, quiet=False)
-    df = pd.read_csv(output)
-    return df
-
-# Variável global para o DataFrame
-data = None
-
-@app.on_event("startup")
-def startup_event():
-    global data
-    # Coloque o ID do seu arquivo do Google Drive aqui
-    file_id = "1GR_CibmsSuSmxL-Fhd1tdQZmVLGGLNCy"
-    data = carregar_csv_drive(file_id)
-    print("Arquivo CSV carregado com sucesso.")
+# Caminho temporário do CSV
+CSV_PATH = "/tmp/arquivo.csv"
 
 # CORS
 app.add_middleware(
@@ -65,28 +40,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Baixar CSV do Google Drive na inicialização
+@app.on_event("startup")
+def startup_event():
+    file_id = "1GR_CibmsSuSmxL-Fhd1tdQZmVLGGLNCy"
+    url = f"https://drive.google.com/uc?id={file_id}"
+    gdown.download(url, CSV_PATH, quiet=False)
+    print("Arquivo CSV baixado com sucesso.")
+
+# Função para carregar CSV sob demanda com tipos otimizados
+def carregar_csv_otimizado() -> pd.DataFrame:
+    dtypes = {
+        "ano": "int16",
+        "nome_municipio": "category",
+        "tipo_animal": "category",
+        "gravidade": "category",
+        "trabalho_relacionado": "category",
+        "faixa_etaria": "category"
+        # Adicione mais colunas aqui conforme necessário
+    }
+    return pd.read_csv(CSV_PATH, dtype=dtypes)
+
 @app.get("/")
 def read_root():
     return {"message": "API de Acidentes com Animais Peçonhentos em SP"}
 
 @app.get("/municipios")
 def get_municipios():
-    return listar_municipios(data)
+    df = carregar_csv_otimizado()
+    return listar_municipios(df)
 
 @app.get("/grafico-casos-por-ano")
 def grafico_casos_por_ano(
     tipo_animal: list[str] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    return dados_casos_por_ano(data, tipo_animal, municipio)
+    df = carregar_csv_otimizado()
+    return dados_casos_por_ano(df, tipo_animal, municipio)
 
 @app.get("/grafico-distribuicao-tipo-animal")
 def grafico_distribuicao_tipo_animal(
     ano: int = Query(None),
     municipio: str = Query(None),
-    tipo_animal: list[str] = Query(default=[]),
+    tipo_animal: list[str] = Query(default=[])
 ):
-    return dados_distribuicao_tipo_animal(data, ano, municipio, tipo_animal)
+    df = carregar_csv_otimizado()
+    return dados_distribuicao_tipo_animal(df, ano, municipio, tipo_animal)
 
 @app.get("/grafico-gravidade")
 def grafico_gravidade(
@@ -94,7 +93,8 @@ def grafico_gravidade(
     tipo_animal: list[str] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    return dados_classificacao_gravidade(data, ano, municipio, tipo_animal)
+    df = carregar_csv_otimizado()
+    return dados_classificacao_gravidade(df, ano, municipio, tipo_animal)
 
 @app.get("/grafico-trabalho")
 def grafico_trabalho(
@@ -102,7 +102,8 @@ def grafico_trabalho(
     tipo_animal: list[str] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    return dados_relacao_trabalho(data, ano, municipio, tipo_animal)
+    df = carregar_csv_otimizado()
+    return dados_relacao_trabalho(df, ano, municipio, tipo_animal)
 
 @app.get("/resumo-estatisticas")
 def resumo_estatisticas(
@@ -110,7 +111,8 @@ def resumo_estatisticas(
     municipio: Optional[str] = Query(None),
     tipo_animal: List[str] = Query(default=[])
 ):
-    return dados_resumo_estatisticas(data, ano=ano, municipio=municipio, tipo_animal=tipo_animal)
+    df = carregar_csv_otimizado()
+    return dados_resumo_estatisticas(df, ano=ano, municipio=municipio, tipo_animal=tipo_animal)
 
 @app.get("/modelo/idade-casos")
 def idade_casos(
@@ -118,25 +120,25 @@ def idade_casos(
     tipo_animal: list[int] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    return dados_idade_casos(data, ano, tipo_animal, municipio)
+    df = carregar_csv_otimizado()
+    return dados_idade_casos(df, ano, tipo_animal, municipio)
 
 @app.get("/modelo/idade-por-animal")
 def idade_por_animal(
     ano: int = Query(None),
     municipio: str = Query(default=None)
 ):
-    return dados_idade_por_animal(data, ano, municipio)
-
-# GWR
+    df = carregar_csv_otimizado()
+    return dados_idade_por_animal(df, ano, municipio)
 
 @app.get("/modelo/gwr-por-idade")
 def previsao_por_idade(
     ano: int = Query(None),
     municipio: str = Query(default=None)
 ):
-    return prever_casos_por_idade(data, ano, municipio)
+    df = carregar_csv_otimizado()
+    return prever_casos_por_idade(df, ano, municipio)
 
-# Busca
 @app.get("/busca/postos-mais-proximo")
 def buscar_postos_proximos(
     endereco: str = Query(..., description="Endereço de origem"),
@@ -151,7 +153,6 @@ def buscar_postos_proximos(
             geojson_path="geojson_sp.json",
             caminho_csv="postos_geolocalizados.csv",
         )
-
         if "erro" in resultado:
             return JSONResponse(status_code=400, content=resultado)
 
@@ -162,11 +163,9 @@ def buscar_postos_proximos(
             "postos_proximos": resultado["top_10_postos"]
         }
 
-
     except Exception as e:
         return JSONResponse(status_code=500, content={"erro": str(e)})
-    
-# Busca todos os postos para exibir no mapa inicialmente
+
 @app.get("/busca/todos-postos")
 def buscar_todos_os_postos():
     try:
