@@ -1,0 +1,31 @@
+# Arquivos e pastas de ambiente virtual
+venv/
+.env
+*.env
+
+# Cache e arquivos compilados
+__pycache__/
+*.py[cod]
+*.so
+
+# Logs e dados temporários
+*.log
+*.tmp
+
+# Configurações locais de IDE
+.vscode/
+.idea/
+*.swp
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de build/distribuição
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+#animais_peconhentos_SP_completo.csv
