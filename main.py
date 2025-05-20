@@ -1,12 +1,11 @@
+#main.py
+
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from typing import List, Optional
-import requests
-import os
-import zipfile
-from kaggle.api.kaggle_api_extended import KaggleApi
+import gdown
 
 from graphics import (
     dados_casos_por_ano,
@@ -28,52 +27,35 @@ from busca import(
     obter_todos_os_postos
 )
 
+from fastapi import FastAPI
+import pandas as pd
+import requests
+from io import StringIO
 
-# === DOWNLOAD DE DATASET DO KAGGLE ===
-
-def download_dataset_from_kaggle():
-    dataset_zip_path = 'datasets/kaggle_dataset.zip'
-    dataset_folder = 'datasets'
-
-    # Cria pasta datasets, se não existir
-    if not os.path.exists(dataset_folder):
-        os.makedirs(dataset_folder)
-
-    # Se o arquivo ZIP não existir, faz o download
-    if not os.path.isfile(dataset_zip_path):
-        print("Baixando dataset do Kaggle...")
-        api = KaggleApi()
-        api.authenticate()
-        # Ajuste para seu dataset
-        api.dataset_download_files('karinecerqueira/onde-tem', path=dataset_folder, unzip=False)
-
-    # Confirma que o arquivo ZIP existe antes de abrir
-    if not os.path.isfile(dataset_zip_path):
-        raise FileNotFoundError(f"Arquivo ZIP não encontrado após download: {dataset_zip_path}")
-
-    # Agora abre o ZIP
-    with zipfile.ZipFile(dataset_zip_path, 'r') as zip_ref:
-        zip_ref.extractall(dataset_folder)
-
-    # Retorna o caminho do arquivo CSV esperado
-    csv_path = os.path.join(dataset_folder, 'onde-tem.csv')  # ajuste para o nome real do CSV no ZIP
-    return csv_path
-
-
-# === CARREGAMENTO DO DATAFRAME ===
-
-csv_path = "animais_peconhentos_SP_completo.csv"
-
-if not os.path.exists(csv_path):
-    print("Arquivo CSV local não encontrado, tentando baixar do Kaggle...")
-    csv_path = download_dataset_from_kaggle()
-
-data = pd.read_csv(csv_path)
-
-
-# === CONFIGURAÇÃO DO FASTAPI ===
+# Carregar o DataFrame
+#data = pd.read_csv('animais_peconhentos_SP_completo.csv')
 
 app = FastAPI()
+
+# Função para carregar o CSV usando gdown
+def carregar_csv_drive(file_id: str) -> pd.DataFrame:
+    url = f"https://drive.google.com/uc?id={file_id}"
+    output = "/tmp/arquivo.csv"  # Caminho temporário onde o arquivo será salvo
+    gdown.download(url, output, quiet=False)
+    df = pd.read_csv(output)
+    return df
+
+# Variável global para o DataFrame
+data = None
+
+@app.on_event("startup")
+def startup_event():
+    global data
+    # Coloque o ID do seu arquivo do Google Drive aqui
+    file_id = "1GR_CibmsSuSmxL-Fhd1tdQZmVLGGLNCy"
+    data = carregar_csv_drive(file_id)
+    print("Arquivo CSV carregado com sucesso.")
+    print(data.columns.tolist())
 
 # CORS
 app.add_middleware(
@@ -84,16 +66,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 def read_root():
     return {"message": "API de Acidentes com Animais Peçonhentos em SP"}
 
-
 @app.get("/municipios")
 def get_municipios():
     return listar_municipios(data)
-
 
 @app.get("/grafico-casos-por-ano")
 def grafico_casos_por_ano(
@@ -101,7 +80,6 @@ def grafico_casos_por_ano(
     municipio: str = Query(default=None)
 ):
     return dados_casos_por_ano(data, tipo_animal, municipio)
-
 
 @app.get("/grafico-distribuicao-tipo-animal")
 def grafico_distribuicao_tipo_animal(
@@ -111,7 +89,6 @@ def grafico_distribuicao_tipo_animal(
 ):
     return dados_distribuicao_tipo_animal(data, ano, municipio, tipo_animal)
 
-
 @app.get("/grafico-gravidade")
 def grafico_gravidade(
     ano: int = Query(None),
@@ -119,7 +96,6 @@ def grafico_gravidade(
     municipio: str = Query(default=None)
 ):
     return dados_classificacao_gravidade(data, ano, municipio, tipo_animal)
-
 
 @app.get("/grafico-trabalho")
 def grafico_trabalho(
@@ -129,7 +105,6 @@ def grafico_trabalho(
 ):
     return dados_relacao_trabalho(data, ano, municipio, tipo_animal)
 
-
 @app.get("/resumo-estatisticas")
 def resumo_estatisticas(
     ano: Optional[int] = Query(None),
@@ -137,7 +112,6 @@ def resumo_estatisticas(
     tipo_animal: List[str] = Query(default=[])
 ):
     return dados_resumo_estatisticas(data, ano=ano, municipio=municipio, tipo_animal=tipo_animal)
-
 
 @app.get("/modelo/idade-casos")
 def idade_casos(
@@ -147,7 +121,6 @@ def idade_casos(
 ):
     return dados_idade_casos(data, ano, tipo_animal, municipio)
 
-
 @app.get("/modelo/idade-por-animal")
 def idade_por_animal(
     ano: int = Query(None),
@@ -155,6 +128,7 @@ def idade_por_animal(
 ):
     return dados_idade_por_animal(data, ano, municipio)
 
+# GWR
 
 @app.get("/modelo/gwr-por-idade")
 def previsao_por_idade(
@@ -163,7 +137,7 @@ def previsao_por_idade(
 ):
     return prever_casos_por_idade(data, ano, municipio)
 
-
+# Busca
 @app.get("/busca/postos-mais-proximo")
 def buscar_postos_proximos(
     endereco: str = Query(..., description="Endereço de origem"),
@@ -189,10 +163,11 @@ def buscar_postos_proximos(
             "postos_proximos": resultado["top_10_postos"]
         }
 
+
     except Exception as e:
         return JSONResponse(status_code=500, content={"erro": str(e)})
-
-
+    
+# Busca todos os postos para exibir no mapa inicialmente
 @app.get("/busca/todos-postos")
 def buscar_todos_os_postos():
     try:
