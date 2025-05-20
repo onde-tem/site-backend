@@ -2,13 +2,8 @@
 from fastapi import APIRouter, Query
 import pandas as pd
 from statsmodels.nonparametric.smoothers_lowess import lowess
-import geopandas as gpd
-from mgwr.gwr import GWR
-from mgwr.sel_bw import Sel_BW
 
 router = APIRouter()
-
-data = pd.read_csv("animais_peconhentos_SP_completo.csv")
 
 def preparar_dados(df):
     df = df.copy()

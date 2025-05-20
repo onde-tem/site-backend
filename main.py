@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from typing import List, Optional
+import requests
 import os
 
 from graphics import (
@@ -27,6 +28,49 @@ from busca import(
     obter_todos_os_postos
 )
 
+# === DOWNLOAD AUTOMÁTICO DO GOOGLE DRIVE ===
+
+def download_large_file_from_google_drive(file_id, destination):
+    URL = "https://docs.google.com/uc?export=download"
+
+    session = requests.Session()
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+
+    save_response_content(response, destination)
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination):
+    CHUNK_SIZE = 32768
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk:
+                f.write(chunk)
+
+# ID do Google Drive
+file_id = "1cf6Q_TJfAE_THUbwM9lFTXy81F7jD_mY"
+csv_path = "animais_peconhentos_SP_completo.csv"
+
+# Baixar apenas se não existir localmente
+if not os.path.exists(csv_path):
+    print("Arquivo CSV não encontrado, baixando do Google Drive...")
+    download_large_file_from_google_drive(file_id, csv_path)
+else:
+    print("Arquivo CSV já existe.")
+
+# Carregar o DataFrame
+data = pd.read_csv(csv_path)
+
+
 app = FastAPI()
 
 # CORS
@@ -37,9 +81,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Carregamento do DataFrame com os dados dos acidentes
-data = pd.read_csv("animais_peconhentos_SP_completo.csv")
 
 @app.get("/")
 def read_root():
