@@ -3,10 +3,9 @@
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
 from typing import List, Optional
+import pandas as pd
 import os
-from functools import lru_cache
 
 from graphics import (
     dados_casos_por_ano,
@@ -40,26 +39,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === Função para carregar dados sob demanda ===
-@lru_cache(maxsize=100)
-def carregar_dados_ano(ano: int) -> pd.DataFrame:
-    """Carrega os dados de um ano específico com cache."""
-    caminho = os.path.join("dados_por_ano", f"dados{ano}.csv")
-    if os.path.exists(caminho):
-        try:
-            return pd.read_csv(caminho, low_memory=False)
-        except Exception as e:
-            print(f"Erro ao carregar {caminho}: {e}")
-    return pd.DataFrame()
+# === Funções auxiliares de carregamento otimizado ===
+
+def ler_csv_filtrado(caminho, filtro_fn=lambda df: df, usecols=None, chunksize=100_000):
+    if not os.path.exists(caminho):
+        return pd.DataFrame()
+
+    chunks = []
+    try:
+        for chunk in pd.read_csv(caminho, chunksize=chunksize, usecols=usecols, low_memory=False):
+            df_filtrado = filtro_fn(chunk)
+            if not df_filtrado.empty:
+                chunks.append(df_filtrado)
+    except Exception as e:
+        print(f"Erro ao ler {caminho}: {e}")
+    return pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
 
 
-def carregar_dados(anos: Optional[List[int]] = None) -> pd.DataFrame:
-    """Carrega e concatena dados de múltiplos anos."""
+def carregar_dados_otimizado(
+    anos: Optional[List[int]] = None,
+    filtro_fn=lambda df: df,
+    usecols: Optional[List[str]] = None
+) -> pd.DataFrame:
     if anos is None:
         anos = list(range(2007, 2024))
-    frames = [carregar_dados_ano(ano) for ano in anos]
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
+    dados = []
+    for ano in anos:
+        caminho = os.path.join("dados_por_ano", f"dados{ano}.csv")
+        df = ler_csv_filtrado(caminho, filtro_fn, usecols)
+        if not df.empty:
+            dados.append(df)
+    return pd.concat(dados, ignore_index=True) if dados else pd.DataFrame()
 
 # === Rotas da API ===
 
@@ -69,7 +80,7 @@ def read_root():
 
 @app.get("/municipios")
 def get_municipios():
-    data = carregar_dados()
+    data = carregar_dados_otimizado()
     return listar_municipios(data)
 
 @app.get("/grafico-casos-por-ano")
@@ -77,7 +88,14 @@ def grafico_casos_por_ano(
     tipo_animal: list[str] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    data = carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        if tipo_animal:
+            df = df[df["tipo_animal"].isin(tipo_animal)]
+        return df
+
+    data = carregar_dados_otimizado(filtro_fn=filtro_fn)
     return dados_casos_por_ano(data, tipo_animal, municipio)
 
 @app.get("/grafico-distribuicao-tipo-animal")
@@ -86,7 +104,14 @@ def grafico_distribuicao_tipo_animal(
     municipio: str = Query(None),
     tipo_animal: list[str] = Query(default=[]),
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        if tipo_animal:
+            df = df[df["tipo_animal"].isin(tipo_animal)]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return dados_distribuicao_tipo_animal(data, ano, municipio, tipo_animal)
 
 @app.get("/grafico-gravidade")
@@ -95,7 +120,14 @@ def grafico_gravidade(
     tipo_animal: list[str] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        if tipo_animal:
+            df = df[df["tipo_animal"].isin(tipo_animal)]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return dados_classificacao_gravidade(data, ano, municipio, tipo_animal)
 
 @app.get("/grafico-trabalho")
@@ -104,7 +136,14 @@ def grafico_trabalho(
     tipo_animal: list[str] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        if tipo_animal:
+            df = df[df["tipo_animal"].isin(tipo_animal)]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return dados_relacao_trabalho(data, ano, municipio, tipo_animal)
 
 @app.get("/resumo-estatisticas")
@@ -113,7 +152,14 @@ def resumo_estatisticas(
     municipio: Optional[str] = Query(default=None),
     tipo_animal: List[str] = Query(default=[])
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        if tipo_animal:
+            df = df[df["tipo_animal"].isin(tipo_animal)]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return dados_resumo_estatisticas(data, ano=ano, municipio=municipio, tipo_animal=tipo_animal)
 
 @app.get("/modelo/idade-casos")
@@ -122,7 +168,14 @@ def idade_casos(
     tipo_animal: list[int] = Query(default=[]),
     municipio: str = Query(default=None)
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        if tipo_animal:
+            df = df[df["tipo_animal"].isin(tipo_animal)]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return dados_idade_casos(data, ano, tipo_animal, municipio)
 
 @app.get("/modelo/idade-por-animal")
@@ -130,7 +183,12 @@ def idade_por_animal(
     ano: int = Query(None),
     municipio: str = Query(default=None)
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return dados_idade_por_animal(data, ano, municipio)
 
 @app.get("/modelo/gwr-por-idade")
@@ -138,7 +196,12 @@ def previsao_por_idade(
     ano: int = Query(None),
     municipio: str = Query(default=None)
 ):
-    data = carregar_dados([ano]) if ano else carregar_dados()
+    def filtro_fn(df):
+        if municipio:
+            df = df[df["municipio"] == municipio]
+        return df
+
+    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
     return prever_casos_por_idade(data, ano, municipio)
 
 # Busca
