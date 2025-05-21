@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from typing import List, Optional
 import os
+from functools import lru_cache
 
 from graphics import (
     dados_casos_por_ano,
@@ -40,17 +41,25 @@ app.add_middleware(
 )
 
 # === Função para carregar dados sob demanda ===
+@lru_cache(maxsize=100)
+def carregar_dados_ano(ano: int) -> pd.DataFrame:
+    """Carrega os dados de um ano específico com cache."""
+    caminho = os.path.join("dados_por_ano", f"dados{ano}.csv")
+    if os.path.exists(caminho):
+        try:
+            return pd.read_csv(caminho, low_memory=False)
+        except Exception as e:
+            print(f"Erro ao carregar {caminho}: {e}")
+    return pd.DataFrame()
+
+
 def carregar_dados(anos: Optional[List[int]] = None) -> pd.DataFrame:
-    base_dir = "dados_por_ano"
+    """Carrega e concatena dados de múltiplos anos."""
     if anos is None:
-        anos = list(range(2007, 2024))  # padrão: todos os anos disponíveis
-    frames = []
-    for ano in anos:
-        caminho = os.path.join(base_dir, f"dados{ano}.csv")
-        if os.path.exists(caminho):
-            df = pd.read_csv(caminho)
-            frames.append(df)
+        anos = list(range(2007, 2024))
+    frames = [carregar_dados_ano(ano) for ano in anos]
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
 
 # === Rotas da API ===
 
