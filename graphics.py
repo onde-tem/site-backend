@@ -3,8 +3,8 @@
 import pandas as pd
 
 def mapear_categoria_acidente(df):
-    if 'TP_ACIDENT' not in df.columns:
-        raise KeyError("Coluna 'TP_ACIDENT' não encontrada no DataFrame.")
+    if 'tp_acident' not in df.columns:
+        raise KeyError("Coluna 'tp_acident' não encontrada no DataFrame.")
     
     categorias_acidente = {
         1: 'Serpente',
@@ -16,24 +16,24 @@ def mapear_categoria_acidente(df):
         9: 'Ignorado'
     }
     df = df.copy()
-    df['Categoria_Acidente'] = df['TP_ACIDENT'].map(categorias_acidente)
+    df['categoria_acidente'] = df['tp_acident'].map(categorias_acidente)
     return df
 
 
 def listar_municipios(df):
-    municipios = sorted(df['Nome_Município'].dropna().unique().tolist())
+    municipios = sorted(df['nome_municipio'].dropna().unique().tolist())
     return municipios
 
 
 def dados_casos_por_ano(df, tipo_animal=None, municipio=None):
     df = mapear_categoria_acidente(df)
 
-    if tipo_animal:  # lista não vazia
-        df = df[df['Categoria_Acidente'].isin(tipo_animal)]
-    if municipio:  # string não vazia
-        df = df[df['Nome_Município'] == municipio]
+    if tipo_animal:
+        df = df[df['categoria_acidente'].isin(tipo_animal)]
+    if municipio:
+        df = df[df['nome_municipio'] == municipio]
 
-    casos_ano = df['NU_ANO'].value_counts().sort_index()
+    casos_ano = df['nu_ano'].value_counts().sort_index()
     return {
         "labels": casos_ano.index.tolist(),
         "datasets": [
@@ -47,17 +47,18 @@ def dados_casos_por_ano(df, tipo_animal=None, municipio=None):
         ]
     }
 
+
 def dados_casos_por_municipio(df, ano=None, tipo_animal=None, municipio=None):
     df = mapear_categoria_acidente(df)
 
     if ano:
-        df = df[df['NU_ANO'] == ano]
+        df = df[df['nu_ano'] == ano]
     if tipo_animal:
-        df = df[df['Categoria_Acidente'].isin(tipo_animal)]
+        df = df[df['categoria_acidente'].isin(tipo_animal)]
     if municipio:
-        df = df[df['Nome_Município'] == municipio]
+        df = df[df['nome_municipio'] == municipio]
 
-    casos_municipio = df['Nome_Município'].value_counts().sort_values(ascending=False)
+    casos_municipio = df['nome_municipio'].value_counts().sort_values(ascending=False)
     return {
         "labels": casos_municipio.index.tolist(),
         "datasets": [
@@ -69,17 +70,18 @@ def dados_casos_por_municipio(df, ano=None, tipo_animal=None, municipio=None):
         ]
     }
 
+
 def dados_distribuicao_tipo_animal(df, ano=None, municipio=None, tipo_animal=None):
     df = mapear_categoria_acidente(df)
 
     if ano:
-        df = df[df['NU_ANO'] == ano]
+        df = df[df['nu_ano'] == ano]
     if municipio:
-        df = df[df['Nome_Município'] == municipio]
+        df = df[df['nome_municipio'] == municipio]
     if tipo_animal:
-        df = df[df['Categoria_Acidente'].isin(tipo_animal)]
+        df = df[df['categoria_acidente'].isin(tipo_animal)]
 
-    casos_tipo = df['Categoria_Acidente'].value_counts()
+    casos_tipo = df['categoria_acidente'].value_counts()
     cores = ["#6366f1", "#f59e0b", "#ef4444", "#10b981", "#3b82f6", "#a855f7", "#eab308"]
 
     return {
@@ -93,16 +95,18 @@ def dados_distribuicao_tipo_animal(df, ano=None, municipio=None, tipo_animal=Non
         ]
     }
 
+
 def dados_classificacao_gravidade(df, ano=None, municipio=None, tipo_animal=None):
     df = mapear_categoria_acidente(df)
-    if ano:
-        df = df[df['NU_ANO'] == ano]
-    if municipio:
-        df = df[df['Nome_Município'] == municipio]
-    if tipo_animal:
-        df = df[df['Categoria_Acidente'].isin(tipo_animal)]
 
-    casos = df['TRA_CLASSI'].value_counts()
+    if ano:
+        df = df[df['nu_ano'] == ano]
+    if municipio:
+        df = df[df['nome_municipio'] == municipio]
+    if tipo_animal:
+        df = df[df['categoria_acidente'].isin(tipo_animal)]
+
+    casos = df['tra_classi'].value_counts()
     return {
         "labels": casos.index.tolist(),
         "datasets": [{
@@ -112,16 +116,18 @@ def dados_classificacao_gravidade(df, ano=None, municipio=None, tipo_animal=None
         }]
     }
 
+
 def dados_relacao_trabalho(df, ano=None, municipio=None, tipo_animal=None):
     df = mapear_categoria_acidente(df)
-    if ano:
-        df = df[df['NU_ANO'] == ano]
-    if municipio:
-        df = df[df['Nome_Município'] == municipio]
-    if tipo_animal:
-        df = df[df['Categoria_Acidente'].isin(tipo_animal)]
 
-    casos = df['DOENCA_TRA'].value_counts()
+    if ano:
+        df = df[df['nu_ano'] == ano]
+    if municipio:
+        df = df[df['nome_municipio'] == municipio]
+    if tipo_animal:
+        df = df[df['categoria_acidente'].isin(tipo_animal)]
+
+    casos = df['doenca_tra'].value_counts()
     return {
         "labels": casos.index.tolist(),
         "datasets": [{
@@ -131,26 +137,25 @@ def dados_relacao_trabalho(df, ano=None, municipio=None, tipo_animal=None):
         }]
     }
 
+
 def dados_resumo_estatisticas(df, ano=None, municipio=None, tipo_animal=None):
     df = df.copy()
     df = mapear_categoria_acidente(df)
 
     if ano:
-        df = df[df['NU_ANO'] == ano]
+        df = df[df['nu_ano'] == ano]
     if municipio:
-        df = df[df['Nome_Município'] == municipio]
+        df = df[df['nome_municipio'] == municipio]
     if tipo_animal:
-        df = df[df['Categoria_Acidente'].isin(tipo_animal)]
+        df = df[df['categoria_acidente'].isin(tipo_animal)]
 
     total = len(df)
 
-    # Taxa de óbitos (apenas código 2)
-    obitos = df['EVOLUCAO'].eq(2).sum()
+    obitos = df['evolucao'].eq(2).sum()
     taxa_obitos = round((obitos / total) * 100, 2) if total > 0 else 0.0
 
-    # Tempo médio de atendimento (ignorando código 9)
-    if 'ANT_TEMPO_' in df:
-        tempos_validos = df[df['ANT_TEMPO_'] != 9]['ANT_TEMPO_']
+    if 'ant_tempo' in df:
+        tempos_validos = df[df['ant_tempo'] != 9]['ant_tempo']
         tempo_medio = round(tempos_validos.mean(), 2) if not tempos_validos.empty else None
     else:
         tempo_medio = None
@@ -160,6 +165,3 @@ def dados_resumo_estatisticas(df, ano=None, municipio=None, tipo_animal=None):
         "taxa_obitos": f"{taxa_obitos}%",
         "tempo_medio": f"{tempo_medio} horas" if tempo_medio is not None else "-"
     }
-
-
-

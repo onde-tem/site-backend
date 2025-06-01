@@ -1,33 +1,36 @@
 #main.py
+
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
 import pandas as pd
+from typing import List, Optional
 import os
+from sqlalchemy import create_engine, text
 
 from graphics import (
     dados_casos_por_ano,
     dados_distribuicao_tipo_animal,
     listar_municipios,
     dados_classificacao_gravidade,
-    dados_relacao_trabalho,
+    # dados_relacao_trabalho,
     dados_resumo_estatisticas
 )
 
-from models import (
-    dados_idade_casos,
-    dados_idade_por_animal,
-    prever_casos_por_idade
-)
+# from models import(
+#     dados_idade_casos,
+#     dados_idade_por_animal,
+#     prever_casos_por_idade
+# )
 
-from busca import (
+from busca import(
     processar_acidente,
     obter_todos_os_postos
 )
 
 app = FastAPI()
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,35 +39,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === Funções auxiliares de carregamento otimizado ===
-
-def processar_em_chunks(caminho, filtro_fn, usecols=None, chunksize=100_000):
-    if not os.path.exists(caminho):
-        return pd.DataFrame()
-
-    resultado = []
-    try:
-        for chunk in pd.read_csv(caminho, chunksize=chunksize, usecols=usecols, low_memory=False):
-            df_filtrado = filtro_fn(chunk)
-            if not df_filtrado.empty:
-                resultado.append(df_filtrado)
-    except Exception as e:
-        print(f"Erro ao ler {caminho}: {e}")
-
-    return pd.concat(resultado, ignore_index=True) if resultado else pd.DataFrame()
-
-def carregar_dados_otimizado(anos: Optional[List[int]] = None, filtro_fn=lambda df: df, usecols: Optional[List[str]] = None) -> pd.DataFrame:
-    if anos is None:
-        anos = list(range(2007, 2024))
-
-    dados = []
-    for ano in anos:
-        caminho = os.path.join("dados_por_ano", f"dados{ano}.csv")
-        df = processar_em_chunks(caminho, filtro_fn, usecols)
-        if not df.empty:
-            dados.append(df)
-
-    return pd.concat(dados, ignore_index=True) if dados else pd.DataFrame()
+# Conexão com banco PostgreSQL
+DATABASE_URL = "postgresql://neondb_owner:npg_obD7ARHn9Kzw@ep-noisy-credit-acainov5-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+engine = create_engine(DATABASE_URL)
 
 @app.get("/")
 def read_root():
@@ -72,103 +49,142 @@ def read_root():
 
 @app.get("/municipios")
 def get_municipios():
-    data = carregar_dados_otimizado()
-    return listar_municipios(data)
+    with engine.connect() as conn:
+        df = pd.read_sql("SELECT DISTINCT nome_municipio FROM data", conn)
+    return listar_municipios(df)
 
 @app.get("/grafico-casos-por-ano")
-def grafico_casos_por_ano(tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        if tipo_animal:
-            df = df[df["tipo_animal"].isin(tipo_animal)]
-        return df
+def grafico_casos_por_ano(tipo_animal: list[int] = Query(default=[]), municipio: str = Query(default=None)):
+    query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
+    params = {}
 
-    data = carregar_dados_otimizado(filtro_fn=filtro_fn)
-    return dados_casos_por_ano(data, tipo_animal, municipio)
+    if tipo_animal:
+        query += " AND tp_acident = ANY(:tipos)"
+        params["tipos"] = tipo_animal
+    if municipio:
+        query += " AND nome_municipio = :municipio"
+        params["municipio"] = municipio
+
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn, params=params)
+
+    return dados_casos_por_ano(df, tipo_animal, municipio)
 
 @app.get("/grafico-distribuicao-tipo-animal")
 def grafico_distribuicao_tipo_animal(ano: int = Query(None), municipio: str = Query(None), tipo_animal: list[str] = Query(default=[])):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        if tipo_animal:
-            df = df[df["tipo_animal"].isin(tipo_animal)]
-        return df
-
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return dados_distribuicao_tipo_animal(data, ano, municipio, tipo_animal)
+    query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
+    params = {}
+    if ano:
+        query += " AND nu_ano = :ano"
+        params["ano"] = ano
+    if municipio:
+        query += " AND nome_municipio = :municipio"
+        params["municipio"] = municipio
+    if tipo_animal:
+        query += " AND tp_acident = ANY(:tipos)"
+        params["tipos"] = tipo_animal
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn, params=params)
+    return dados_distribuicao_tipo_animal(df, ano, municipio, tipo_animal)
 
 @app.get("/grafico-gravidade")
 def grafico_gravidade(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        if tipo_animal:
-            df = df[df["tipo_animal"].isin(tipo_animal)]
-        return df
+    query = "SELECT nu_ano, tp_acident, nome_municipio, tra_classi FROM data WHERE 1=1"
+    params = {}
+    if ano:
+        query += " AND nu_ano = :ano"
+        params["ano"] = ano
+    if tipo_animal:
+        query += " AND tp_acident = ANY(:tipos)"
+        params["tipos"] = tipo_animal
+    if municipio:
+        query += " AND nome_municipio = :municipio"
+        params["municipio"] = municipio
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn, params=params)
+    return dados_classificacao_gravidade(df, ano, municipio, tipo_animal)
 
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return dados_classificacao_gravidade(data, ano, municipio, tipo_animal)
-
-@app.get("/grafico-trabalho")
-def grafico_trabalho(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        if tipo_animal:
-            df = df[df["tipo_animal"].isin(tipo_animal)]
-        return df
-
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return dados_relacao_trabalho(data, ano, municipio, tipo_animal)
+# @app.get("/grafico-trabalho")
+# def grafico_trabalho(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
+#     query = "SELECT nu_ano, tp_acident, nome_municipio, tp_acident FROM data WHERE 1=1"
+#     params = {}
+#     if ano:
+#         query += " AND nu_ano = :ano"
+#         params["ano"] = ano
+#     if tipo_animal:
+#         query += " AND tp_acident = ANY(:tipos)"
+#         params["tipos"] = tipo_animal
+#     if municipio:
+#         query += " AND nome_municipio = :municipio"
+#         params["municipio"] = municipio
+#     with engine.connect() as conn:
+#         df = pd.read_sql(text(query), conn, params=params)
+#     return dados_relacao_trabalho(df, ano, municipio, tipo_animal)
 
 @app.get("/resumo-estatisticas")
-def resumo_estatisticas(ano: Optional[int] = Query(None), municipio: Optional[str] = Query(default=None), tipo_animal: List[str] = Query(default=[])):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        if tipo_animal:
-            df = df[df["tipo_animal"].isin(tipo_animal)]
-        return df
+def resumo_estatisticas(ano: Optional[int] = Query(None), municipio: Optional[str] = Query(None), tipo_animal: List[str] = Query(default=[])):
+    query = "SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_ FROM data WHERE 1=1"
+    params = {}
+    if ano:
+        query += " AND nu_ano = :ano"
+        params["ano"] = ano
+    if municipio:
+        query += " AND nome_municipio = :municipio"
+        params["municipio"] = municipio
+    if tipo_animal:
+        query += " AND tp_acident = ANY(:tipos)"
+        params["tipos"] = tipo_animal
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn, params=params)
+    return dados_resumo_estatisticas(df, ano, municipio, tipo_animal)
 
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return dados_resumo_estatisticas(data, ano=ano, municipio=municipio, tipo_animal=tipo_animal)
+# @app.get("/modelo/idade-casos")
+# def idade_casos(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
+#     query = "SELECT nu_ano, nu_idade_n, tp_acident, nome_municipio FROM data WHERE 1=1"
+#     params = {}
+#     if ano:
+#         query += " AND nu_ano = :ano"
+#         params["ano"] = ano
+#     if tipo_animal:
+#         query += " AND tp_acident = ANY(:tipos)"
+#         params["tipos"] = tipo_animal
+#     if municipio:
+#         query += " AND nome_municipio = :municipio"
+#         params["municipio"] = municipio
+#     with engine.connect() as conn:
+#         df = pd.read_sql(text(query), conn, params=params)
+#     return dados_idade_casos(df, ano, tipo_animal, municipio)
 
-@app.get("/modelo/idade-casos")
-def idade_casos(ano: int = Query(None), tipo_animal: list[int] = Query(default=[]), municipio: str = Query(default=None)):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        if tipo_animal:
-            df = df[df["tipo_animal"].isin(tipo_animal)]
-        return df
+# @app.get("/modelo/idade-por-animal")
+# def idade_por_animal(ano: int = Query(None), municipio: str = Query(default=None)):
+#     query = "SELECT nu_ano, nu_idade_n, tp_acident, nome_municipio FROM data WHERE 1=1"
+#     params = {}
+#     if ano:
+#         query += " AND nu_ano = :ano"
+#         params["ano"] = ano
+#     if municipio:
+#         query += " AND nome_municipio = :municipio"
+#         params["municipio"] = municipio
+#     with engine.connect() as conn:
+#         df = pd.read_sql(text(query), conn, params=params)
+#     return dados_idade_por_animal(df, ano, municipio)
 
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return dados_idade_casos(data, ano, tipo_animal, municipio)
-
-@app.get("/modelo/idade-por-animal")
-def idade_por_animal(ano: int = Query(None), municipio: str = Query(default=None)):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        return df
-
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return dados_idade_por_animal(data, ano, municipio)
-
-@app.get("/modelo/gwr-por-idade")
-def previsao_por_idade(ano: int = Query(None), municipio: str = Query(default=None)):
-    def filtro_fn(df):
-        if municipio:
-            df = df[df["municipio"] == municipio]
-        return df
-
-    data = carregar_dados_otimizado([ano] if ano else None, filtro_fn)
-    return prever_casos_por_idade(data, ano, municipio)
+# @app.get("/modelo/gwr-por-idade")
+# def previsao_por_idade(ano: int = Query(None), municipio: str = Query(default=None)):
+#     query = "SELECT nu_ano, nu_idade_n, nome_municipio FROM data WHERE 1=1"
+#     params = {}
+#     if ano:
+#         query += " AND nu_ano = :ano"
+#         params["ano"] = ano
+#     if municipio:
+#         query += " AND nome_municipio = :municipio"
+#         params["municipio"] = municipio
+#     with engine.connect() as conn:
+#         df = pd.read_sql(text(query), conn, params=params)
+#     return prever_casos_por_idade(df, ano, municipio)
 
 @app.get("/busca/postos-mais-proximo")
-def buscar_postos_proximos(endereco: str = Query(...), animal: str = Query(...), transporte: str = Query(...)):
+def buscar_postos_proximos(endereco: str = Query(..., description="Endereço de origem"), animal: str = Query(..., description="Animal causador do acidente"), transporte: str = Query(..., description="Modo de transporte (carro, bicicleta, caminhando)")):
     try:
         resultado = processar_acidente(
             endereco_origem=endereco,
@@ -177,6 +193,7 @@ def buscar_postos_proximos(endereco: str = Query(...), animal: str = Query(...),
             geojson_path="geojson_sp.json",
             caminho_csv="postos_geolocalizados.csv",
         )
+
         if "erro" in resultado:
             return JSONResponse(status_code=400, content=resultado)
 
