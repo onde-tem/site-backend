@@ -1,11 +1,8 @@
-#main.py
-
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
-from typing import List, Optional
-import os
+from typing import List, Optional, Union
 from sqlalchemy import create_engine, text
 
 from graphics import (
@@ -13,15 +10,8 @@ from graphics import (
     dados_distribuicao_tipo_animal,
     listar_municipios,
     dados_classificacao_gravidade,
-    # dados_relacao_trabalho,
     dados_resumo_estatisticas
 )
-
-# from models import(
-#     dados_idade_casos,
-#     dados_idade_por_animal,
-#     prever_casos_por_idade
-# )
 
 from busca import(
     processar_acidente,
@@ -49,15 +39,18 @@ def read_root():
 
 @app.get("/grafico-casos-por-ano")
 def grafico_casos_por_ano(
-    tipo_animal: List[int] = Query(default=[]),
+    tipo_animal: Union[List[str], str] = Query(default=[]),
     municipio: Optional[str] = Query(default=None)
 ):
+    if isinstance(tipo_animal, str):
+        tipo_animal = [tipo_animal]
+
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
 
     if tipo_animal:
-        query += " AND tp_acident = ANY(:tipos)"
-        params["tipos"] = tipo_animal
+        query += " AND tp_acident IN :tipos"
+        params["tipos"] = tuple(map(int, tipo_animal))
 
     if municipio:
         query += " AND nome_municipio = :municipio"
@@ -68,13 +61,15 @@ def grafico_casos_por_ano(
 
     return dados_casos_por_ano(df, tipo_animal, municipio)
 
-
 @app.get("/grafico-distribuicao-tipo-animal")
 def grafico_distribuicao_tipo_animal(
     ano: Optional[int] = Query(default=None),
     municipio: Optional[str] = Query(default=None),
-    tipo_animal: Optional[List[str]] = Query(default=None)
+    tipo_animal: Union[List[str], str] = Query(default=None)
 ):
+    if isinstance(tipo_animal, str):
+        tipo_animal = [tipo_animal]
+
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
 
@@ -87,9 +82,8 @@ def grafico_distribuicao_tipo_animal(
         params["municipio"] = municipio
 
     if tipo_animal:
-        tipo_animal = [float(t) for t in tipo_animal]
-        query += " AND tp_acident = ANY(:tipos)"
-        params["tipos"] = tipo_animal
+        query += " AND tp_acident IN :tipos"
+        params["tipos"] = tuple(map(int, tipo_animal))
 
     with engine.connect() as conn:
         df = pd.read_sql(text(query), conn, params=params)
@@ -99,9 +93,12 @@ def grafico_distribuicao_tipo_animal(
 @app.get("/grafico-gravidade")
 def grafico_gravidade(
     ano: Optional[int] = Query(default=None),
-    tipo_animal: List[str] = Query(default=[]),
+    tipo_animal: Union[List[str], str] = Query(default=[]),
     municipio: Optional[str] = Query(default=None)
 ):
+    if isinstance(tipo_animal, str):
+        tipo_animal = [tipo_animal]
+
     query = "SELECT nu_ano, tp_acident, nome_municipio, tra_classi FROM data WHERE 1=1"
     params = {}
 
@@ -111,7 +108,7 @@ def grafico_gravidade(
 
     if tipo_animal:
         query += " AND tp_acident IN :tipos"
-        params["tipos"] = tuple(map(int, tipo_animal))  # converte para int e transforma em tupla
+        params["tipos"] = tuple(map(int, tipo_animal))
 
     if municipio:
         query += " AND nome_municipio = :municipio"
@@ -122,13 +119,15 @@ def grafico_gravidade(
 
     return dados_classificacao_gravidade(df, ano, municipio, tipo_animal)
 
-
 @app.get("/resumo-estatisticas")
 def resumo_estatisticas(
     ano: Optional[int] = Query(default=None),
     municipio: Optional[str] = Query(default=None),
-    tipo_animal: Optional[List[str]] = Query(default=None)
+    tipo_animal: Union[List[str], str] = Query(default=None)
 ):
+    if isinstance(tipo_animal, str):
+        tipo_animal = [tipo_animal]
+
     query = """
         SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_
         FROM data
@@ -145,9 +144,8 @@ def resumo_estatisticas(
         params["municipio"] = municipio
 
     if tipo_animal:
-        tipo_animal = [float(t) for t in tipo_animal]
-        query += " AND tp_acident = ANY(:tipos)"
-        params["tipos"] = tipo_animal
+        query += " AND tp_acident IN :tipos"
+        params["tipos"] = tuple(map(int, tipo_animal))
 
     with engine.connect() as conn:
         df = pd.read_sql(text(query), conn, params=params)
