@@ -53,14 +53,21 @@ def get_municipios():
         df = pd.read_sql("SELECT DISTINCT nome_municipio FROM data", conn)
     return listar_municipios(df)
 
+from typing import List, Optional
+from fastapi import Query
+
 @app.get("/grafico-casos-por-ano")
-def grafico_casos_por_ano(tipo_animal: list[int] = Query(default=[]), municipio: str = Query(default=None)):
+def grafico_casos_por_ano(
+    tipo_animal: List[int] = Query(default=[]),
+    municipio: Optional[str] = Query(default=None)
+):
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
 
     if tipo_animal:
         query += " AND tp_acident = ANY(:tipos)"
         params["tipos"] = tipo_animal
+
     if municipio:
         query += " AND nome_municipio = :municipio"
         params["municipio"] = municipio
@@ -70,39 +77,87 @@ def grafico_casos_por_ano(tipo_animal: list[int] = Query(default=[]), municipio:
 
     return dados_casos_por_ano(df, tipo_animal, municipio)
 
+
 @app.get("/grafico-distribuicao-tipo-animal")
-def grafico_distribuicao_tipo_animal(ano: int = Query(None), municipio: str = Query(None), tipo_animal: list[str] = Query(default=[])):
+def grafico_distribuicao_tipo_animal(
+    ano: Optional[int] = Query(default=None),
+    municipio: Optional[str] = Query(default=None),
+    tipo_animal: List[str] = Query(default=["3"])  # "3" como padrão
+):
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
+
     if ano:
         query += " AND nu_ano = :ano"
         params["ano"] = ano
+
     if municipio:
         query += " AND nome_municipio = :municipio"
         params["municipio"] = municipio
+
     if tipo_animal:
         query += " AND tp_acident = ANY(:tipos)"
         params["tipos"] = tipo_animal
+
     with engine.connect() as conn:
         df = pd.read_sql(text(query), conn, params=params)
+
     return dados_distribuicao_tipo_animal(df, ano, municipio, tipo_animal)
 
+
 @app.get("/grafico-gravidade")
-def grafico_gravidade(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
+def grafico_gravidade(
+    ano: Optional[int] = Query(default=None),
+    tipo_animal: List[str] = Query(default=[]),
+    municipio: Optional[str] = Query(default=None)
+):
     query = "SELECT nu_ano, tp_acident, nome_municipio, tra_classi FROM data WHERE 1=1"
     params = {}
+
     if ano:
         query += " AND nu_ano = :ano"
         params["ano"] = ano
+
     if tipo_animal:
         query += " AND tp_acident = ANY(:tipos)"
         params["tipos"] = tipo_animal
+
     if municipio:
         query += " AND nome_municipio = :municipio"
         params["municipio"] = municipio
+
     with engine.connect() as conn:
         df = pd.read_sql(text(query), conn, params=params)
+
     return dados_classificacao_gravidade(df, ano, municipio, tipo_animal)
+
+
+@app.get("/resumo-estatisticas")
+def resumo_estatisticas(
+    ano: Optional[int] = Query(default=None),
+    municipio: Optional[str] = Query(default=None),
+    tipo_animal: List[str] = Query(default=[])
+):
+    query = "SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_ FROM data WHERE 1=1"
+    params = {}
+
+    if ano:
+        query += " AND nu_ano = :ano"
+        params["ano"] = ano
+
+    if municipio:
+        query += " AND nome_municipio = :municipio"
+        params["municipio"] = municipio
+
+    if tipo_animal:
+        query += " AND tp_acident = ANY(:tipos)"
+        params["tipos"] = tipo_animal
+
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn, params=params)
+
+    return dados_resumo_estatisticas(df, ano, municipio, tipo_animal)
+
 
 # @app.get("/grafico-trabalho")
 # def grafico_trabalho(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
@@ -120,23 +175,6 @@ def grafico_gravidade(ano: int = Query(None), tipo_animal: list[str] = Query(def
 #     with engine.connect() as conn:
 #         df = pd.read_sql(text(query), conn, params=params)
 #     return dados_relacao_trabalho(df, ano, municipio, tipo_animal)
-
-@app.get("/resumo-estatisticas")
-def resumo_estatisticas(ano: Optional[int] = Query(None), municipio: Optional[str] = Query(None), tipo_animal: List[str] = Query(default=[])):
-    query = "SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_ FROM data WHERE 1=1"
-    params = {}
-    if ano:
-        query += " AND nu_ano = :ano"
-        params["ano"] = ano
-    if municipio:
-        query += " AND nome_municipio = :municipio"
-        params["municipio"] = municipio
-    if tipo_animal:
-        query += " AND tp_acident = ANY(:tipos)"
-        params["tipos"] = tipo_animal
-    with engine.connect() as conn:
-        df = pd.read_sql(text(query), conn, params=params)
-    return dados_resumo_estatisticas(df, ano, municipio, tipo_animal)
 
 # @app.get("/modelo/idade-casos")
 # def idade_casos(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
