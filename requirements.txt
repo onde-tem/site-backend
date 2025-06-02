@@ -6,3 +6,4 @@ geopandas
 requests
 scipy
 folium
+psycopg2
