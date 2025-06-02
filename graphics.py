@@ -7,13 +7,13 @@ def mapear_categoria_acidente(df):
         raise KeyError("Coluna 'tp_acident' não encontrada no DataFrame.")
     
     categorias_acidente = {
-        1: 'Serpente',
-        2: 'Aranha',
-        3: 'Escorpião',
-        4: 'Lagarta',
-        5: 'Abelha',
-        6: 'Outros',
-        9: 'Ignorado'
+        '1': 'Serpente',
+        '2': 'Aranha',
+        '3': 'Escorpião',
+        '4': 'Lagarta',
+        '5': 'Abelha',
+        '6': 'Outros',
+        '9': 'Ignorado'
     }
     df = df.copy()
     df['categoria_acidente'] = df['tp_acident'].map(categorias_acidente)
