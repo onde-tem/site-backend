@@ -47,20 +47,14 @@ engine = create_engine(DATABASE_URL)
 def read_root():
     return {"message": "API de Acidentes com Animais Peçonhentos em SP"}
 
-@app.get("/municipios")
-def get_municipios():
-    with engine.connect() as conn:
-        df = pd.read_sql("SELECT DISTINCT nome_municipio FROM data", conn)
-    return listar_municipios(df)
-
-from typing import List, Optional
-from fastapi import Query
-
 @app.get("/grafico-casos-por-ano")
 def grafico_casos_por_ano(
     tipo_animal: List[int] = Query(default=[]),
     municipio: Optional[str] = Query(default=None)
 ):
+    if not tipo_animal and not municipio:
+        return []
+
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
 
@@ -84,6 +78,9 @@ def grafico_distribuicao_tipo_animal(
     municipio: Optional[str] = Query(default=None),
     tipo_animal: Optional[List[str]] = Query(default=None)
 ):
+    if not any([ano, municipio, tipo_animal]):
+        return []
+
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
 
@@ -96,7 +93,6 @@ def grafico_distribuicao_tipo_animal(
         params["municipio"] = municipio
 
     if tipo_animal:
-        # Converte strings para float porque tp_acident é double precision
         tipo_animal = [float(t) for t in tipo_animal]
         query += " AND tp_acident = ANY(:tipos)"
         params["tipos"] = tipo_animal
@@ -106,14 +102,15 @@ def grafico_distribuicao_tipo_animal(
 
     return dados_distribuicao_tipo_animal(df, ano, municipio, tipo_animal)
 
-
-
 @app.get("/grafico-gravidade")
 def grafico_gravidade(
     ano: Optional[int] = Query(default=None),
     tipo_animal: List[str] = Query(default=[]),
     municipio: Optional[str] = Query(default=None)
 ):
+    if not any([ano, tipo_animal, municipio]):
+        return []
+
     query = "SELECT nu_ano, tp_acident, nome_municipio, tra_classi FROM data WHERE 1=1"
     params = {}
 
@@ -141,6 +138,9 @@ def resumo_estatisticas(
     municipio: Optional[str] = Query(default=None),
     tipo_animal: Optional[List[str]] = Query(default=None)
 ):
+    if not any([ano, municipio, tipo_animal]):
+        return []
+
     query = """
         SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_
         FROM data
