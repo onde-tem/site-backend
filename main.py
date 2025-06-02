@@ -82,7 +82,7 @@ def grafico_casos_por_ano(
 def grafico_distribuicao_tipo_animal(
     ano: Optional[int] = Query(default=None),
     municipio: Optional[str] = Query(default=None),
-    tipo_animal: List[str] = Query(default=["3"])  # "3" como padrão
+    tipo_animal: Optional[List[str]] = Query(default=None)
 ):
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
@@ -96,6 +96,8 @@ def grafico_distribuicao_tipo_animal(
         params["municipio"] = municipio
 
     if tipo_animal:
+        # Converte strings para float porque tp_acident é double precision
+        tipo_animal = [float(t) for t in tipo_animal]
         query += " AND tp_acident = ANY(:tipos)"
         params["tipos"] = tipo_animal
 
@@ -103,6 +105,7 @@ def grafico_distribuicao_tipo_animal(
         df = pd.read_sql(text(query), conn, params=params)
 
     return dados_distribuicao_tipo_animal(df, ano, municipio, tipo_animal)
+
 
 
 @app.get("/grafico-gravidade")
@@ -136,20 +139,25 @@ def grafico_gravidade(
 def resumo_estatisticas(
     ano: Optional[int] = Query(default=None),
     municipio: Optional[str] = Query(default=None),
-    tipo_animal: List[str] = Query(default=[])
+    tipo_animal: Optional[List[str]] = Query(default=None)
 ):
-    query = "SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_ FROM data WHERE 1=1"
+    query = """
+        SELECT nu_ano, nome_municipio, tp_acident, evolucao, ant_tempo_
+        FROM data
+        WHERE 1=1
+    """
     params = {}
 
-    if ano:
+    if ano is not None:
         query += " AND nu_ano = :ano"
         params["ano"] = ano
 
-    if municipio:
+    if municipio is not None:
         query += " AND nome_municipio = :municipio"
         params["municipio"] = municipio
 
     if tipo_animal:
+        tipo_animal = [float(t) for t in tipo_animal]
         query += " AND tp_acident = ANY(:tipos)"
         params["tipos"] = tipo_animal
 
@@ -157,7 +165,6 @@ def resumo_estatisticas(
         df = pd.read_sql(text(query), conn, params=params)
 
     return dados_resumo_estatisticas(df, ano, municipio, tipo_animal)
-
 
 # @app.get("/grafico-trabalho")
 # def grafico_trabalho(ano: int = Query(None), tipo_animal: list[str] = Query(default=[]), municipio: str = Query(default=None)):
