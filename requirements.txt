@@ -5,3 +5,4 @@ sqlalchemy
 geopandas
 requests
 scipy
+folium
