@@ -111,7 +111,7 @@ def grafico_gravidade(
 
     if tipo_animal:
         query += " AND tp_acident = ANY(:tipos)"
-        params["tipos"] = tipo_animal
+        params["tipos"] =  tuple(map(int, tipo_animal))
 
     if municipio:
         query += " AND nome_municipio = :municipio"
