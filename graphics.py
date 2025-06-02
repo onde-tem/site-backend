@@ -2,23 +2,6 @@
 
 import pandas as pd
 
-def mapear_categoria_acidente(df):
-    if 'tp_acident' not in df.columns:
-        raise KeyError("Coluna 'tp_acident' não encontrada no DataFrame.")
-    
-    categorias_acidente = {
-        1: 'Serpente',
-        2: 'Aranha',
-        3: 'Escorpião',
-        4: 'Lagarta',
-        5: 'Abelha',
-        6: 'Outros',
-        9: 'Ignorado'
-    }
-    df = df.copy()
-    df['categoria_acidente'] = df['tp_acident'].map(categorias_acidente)
-    return df
-
 
 def listar_municipios(df):
     municipios = sorted(df['nome_municipio'].dropna().unique().tolist())
@@ -26,13 +9,6 @@ def listar_municipios(df):
 
 
 def dados_casos_por_ano(df, tipo_animal=None, municipio=None):
-    df = mapear_categoria_acidente(df)
-
-    if tipo_animal:
-        df = df[df['categoria_acidente'].isin(tipo_animal)]
-    if municipio:
-        df = df[df['nome_municipio'] == municipio]
-
     casos_ano = df['nu_ano'].value_counts().sort_index()
     return {
         "labels": casos_ano.index.tolist(),
@@ -49,15 +25,6 @@ def dados_casos_por_ano(df, tipo_animal=None, municipio=None):
 
 
 def dados_casos_por_municipio(df, ano=None, tipo_animal=None, municipio=None):
-    df = mapear_categoria_acidente(df)
-
-    if ano:
-        df = df[df['nu_ano'] == ano]
-    if tipo_animal:
-        df = df[df['categoria_acidente'].isin(tipo_animal)]
-    if municipio:
-        df = df[df['nome_municipio'] == municipio]
-
     casos_municipio = df['nome_municipio'].value_counts().sort_values(ascending=False)
     return {
         "labels": casos_municipio.index.tolist(),
@@ -72,16 +39,7 @@ def dados_casos_por_municipio(df, ano=None, tipo_animal=None, municipio=None):
 
 
 def dados_distribuicao_tipo_animal(df, ano=None, municipio=None, tipo_animal=None):
-    df = mapear_categoria_acidente(df)
-
-    if ano:
-        df = df[df['nu_ano'] == ano]
-    if municipio:
-        df = df[df['nome_municipio'] == municipio]
-    if tipo_animal:
-        df = df[df['categoria_acidente'].isin(tipo_animal)]
-
-    casos_tipo = df['categoria_acidente'].value_counts()
+    casos_tipo = df['tp_acident'].value_counts()
     cores = ["#6366f1", "#f59e0b", "#ef4444", "#10b981", "#3b82f6", "#a855f7", "#eab308"]
 
     return {
@@ -97,15 +55,6 @@ def dados_distribuicao_tipo_animal(df, ano=None, municipio=None, tipo_animal=Non
 
 
 def dados_classificacao_gravidade(df, ano=None, municipio=None, tipo_animal=None):
-    df = mapear_categoria_acidente(df)
-
-    if ano:
-        df = df[df['nu_ano'] == ano]
-    if municipio:
-        df = df[df['nome_municipio'] == municipio]
-    if tipo_animal:
-        df = df[df['categoria_acidente'].isin(tipo_animal)]
-
     casos = df['tra_classi'].value_counts()
     return {
         "labels": casos.index.tolist(),
@@ -118,15 +67,6 @@ def dados_classificacao_gravidade(df, ano=None, municipio=None, tipo_animal=None
 
 
 def dados_relacao_trabalho(df, ano=None, municipio=None, tipo_animal=None):
-    df = mapear_categoria_acidente(df)
-
-    if ano:
-        df = df[df['nu_ano'] == ano]
-    if municipio:
-        df = df[df['nome_municipio'] == municipio]
-    if tipo_animal:
-        df = df[df['categoria_acidente'].isin(tipo_animal)]
-
     casos = df['doenca_tra'].value_counts()
     return {
         "labels": casos.index.tolist(),
@@ -140,15 +80,6 @@ def dados_relacao_trabalho(df, ano=None, municipio=None, tipo_animal=None):
 
 def dados_resumo_estatisticas(df, ano=None, municipio=None, tipo_animal=None):
     df = df.copy()
-    df = mapear_categoria_acidente(df)
-
-    if ano:
-        df = df[df['nu_ano'] == ano]
-    if municipio:
-        df = df[df['nome_municipio'] == municipio]
-    if tipo_animal:
-        df = df[df['categoria_acidente'].isin(tipo_animal)]
-
     total = len(df)
 
     obitos = df['evolucao'].eq(2).sum()

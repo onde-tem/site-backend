@@ -39,11 +39,9 @@ def read_root():
 
 @app.get("/grafico-casos-por-ano")
 def grafico_casos_por_ano(
-    tipo_animal: Union[List[str], str] = Query(default=[]),
+    tipo_animal: Optional[str] = Query(default=None),
     municipio: Optional[str] = Query(default=None)
 ):
-    if isinstance(tipo_animal, str):
-        tipo_animal = [tipo_animal]
 
     query = "SELECT nu_ano, nome_municipio, tp_acident FROM data WHERE 1=1"
     params = {}
