@@ -170,18 +170,3 @@ def processar_acidente(endereco_origem, animal, modo_transporte, geojson_path, c
         "top_10_postos": top_10,
         "origem_coords": origem_coords,  # <--- adicionada aqui
     }
-
-def obter_todos_os_postos(caminho_csv):
-    df = pd.read_csv(caminho_csv)
-
-    df = df[[
-        'Unidade de Saúde', 'Endereço', 'Cidade', 'Telefone', 'Tipos de Soro', 'latitude', 'longitude'
-    ]].rename(columns={
-        'Unidade de Saúde': 'nome',
-        'Endereço': 'endereco',
-        'Cidade': 'cidade',
-        'Telefone': 'telefone',
-        'Tipos de Soro': 'soros'
-    })
-
-    return df.to_dict(orient='records')

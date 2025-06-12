@@ -8,14 +8,12 @@ from sqlalchemy import create_engine, text
 from graphics import (
     dados_casos_por_ano,
     dados_distribuicao_tipo_animal,
-    listar_municipios,
     dados_classificacao_gravidade,
     dados_resumo_estatisticas
 )
 
 from busca import(
-    processar_acidente,
-    obter_todos_os_postos
+    processar_acidente
 )
 
 app = FastAPI()
@@ -232,13 +230,5 @@ def buscar_postos_proximos(endereco: str = Query(..., description="Endereço de 
             "posto_mais_proximo": resultado["posto_mais_proximo"],
             "postos_proximos": resultado["top_10_postos"]
         }
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"erro": str(e)})
-
-@app.get("/busca/todos-postos")
-def buscar_todos_os_postos():
-    try:
-        postos = obter_todos_os_postos("postos_geolocalizados.csv")
-        return {"postos": postos}
     except Exception as e:
         return JSONResponse(status_code=500, content={"erro": str(e)})

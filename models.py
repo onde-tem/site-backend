@@ -99,8 +99,6 @@ def dados_idade_por_animal(df, ano: int = None, municipio: str = None):
 
     return resultados
 
-import pandas as pd
-import numpy as np
 from sklearn.preprocessing import StandardScaler
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
