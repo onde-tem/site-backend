@@ -33,12 +33,15 @@ def geocodificar_origem(endereco):
     return f"{coords[1]},{coords[0]}"  # lat, lon
 
 def carregar_postos_soro(caminho_csv, soro_necessario):
-    df = pd.read_csv(caminho_csv)
+    # força UTF-8 e remove espaços das colunas
+    df = pd.read_csv(caminho_csv, encoding='utf-8')
+    df.columns = df.columns.str.strip()  # remove espaços em branco
     if 'Tipos de Soro' not in df.columns:
         raise ValueError("Coluna 'Tipos de Soro' não encontrada no CSV")
     df = df[df['Tipos de Soro'].notna()]  # remove linhas nulas
     df = df[df['Tipos de Soro'].str.contains(soro_necessario, case=False, na=False)]
     return df
+
 
 
 def calcular_distancias_com_blocos(df, origem_coords, modo):
