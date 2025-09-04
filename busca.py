@@ -34,8 +34,12 @@ def geocodificar_origem(endereco):
 
 def carregar_postos_soro(caminho_csv, soro_necessario):
     df = pd.read_csv(caminho_csv)
+    if 'Tipos de Soro' not in df.columns:
+        raise ValueError("Coluna 'Tipos de Soro' não encontrada no CSV")
+    df = df[df['Tipos de Soro'].notna()]  # remove linhas nulas
     df = df[df['Tipos de Soro'].str.contains(soro_necessario, case=False, na=False)]
     return df
+
 
 def calcular_distancias_com_blocos(df, origem_coords, modo):
     df = df.copy()
@@ -142,7 +146,15 @@ def processar_acidente(endereco_origem, animal, modo_transporte, geojson_path, c
     if not soro_necessario:
         return {"erro": "Animal não reconhecido"}
 
-    df_postos = carregar_postos_soro(caminho_csv, soro_necessario)
+    # valida se algum posto tem o soro necessário
+    try:
+        df_postos = carregar_postos_soro(caminho_csv, soro_necessario)
+    except ValueError as e:
+        return {"erro": str(e)}
+
+    if df_postos.empty:
+        return {"erro": f"Nenhum posto encontrado com o soro {soro_necessario}"}
+
     df_postos['Cidade'] = df_postos['Cidade'].apply(normalizar)
     cidades_proximas = [normalizar(cidade) for cidade in cidades_proximas]
     postos_filtrados = df_postos[df_postos['Cidade'].isin(cidades_proximas)]
