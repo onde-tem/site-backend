@@ -16,6 +16,11 @@ from busca import(
     processar_acidente
 )
 
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(BASE_DIR, "postos_geolocalizados.csv")
+GEOJSON_PATH = os.path.join(BASE_DIR, "geojson_sp.json")
+
 app = FastAPI()
 
 # CORS
@@ -215,17 +220,13 @@ import os
 
 @app.get("/busca/postos-mais-proximo")
 def buscar_postos_proximos(endereco: str = Query(..., description="Endereço de origem"), animal: str = Query(..., description="Animal causador do acidente"), transporte: str = Query(..., description="Modo de transporte (carro, bicicleta, caminhando)")):
-    base_dir = os.path.dirname(__file__)  # pasta onde está o main.py ou busca.py
-
-    geojson_path = os.path.join(base_dir, "geojson_sp.json")
-    caminho_csv = os.path.join(base_dir, "postos_geolocalizados.csv")
     try:
         resultado = processar_acidente(
         endereco_origem=endereco,
         animal=animal,
         modo_transporte=transporte,
-        geojson_path=geojson_path,
-        caminho_csv=caminho_csv,
+        geojson_path=GEOJSON_PATH,
+        caminho_csv=CSV_PATH,
     )
 
         if "erro" in resultado:
