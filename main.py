@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from typing import List, Optional, Union
 from sqlalchemy import create_engine, text
+import os
 
 from graphics import (
     dados_casos_por_ano,
@@ -214,9 +215,6 @@ def resumo_estatisticas(
 #     with engine.connect() as conn:
 #         df = pd.read_sql(text(query), conn, params=params)
 #     return prever_casos_por_idade(df, ano, municipio)
-
-import os
-
 
 @app.get("/busca/postos-mais-proximo")
 def buscar_postos_proximos(endereco: str = Query(..., description="Endereço de origem"), animal: str = Query(..., description="Animal causador do acidente"), transporte: str = Query(..., description="Modo de transporte (carro, bicicleta, caminhando)")):
