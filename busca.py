@@ -36,10 +36,10 @@ def carregar_postos_soro(caminho_csv, soro_necessario):
     # força UTF-8 e remove espaços das colunas
     df = pd.read_csv(caminho_csv, encoding='utf-8')
     df.columns = df.columns.str.strip()  # remove espaços em branco
-    if 'Tipos de Soro' not in df.columns:
+    if 'tipos_de_soro' not in df.columns:
         raise ValueError("Coluna 'Tipos de Soro' não encontrada no CSV")
-    df = df[df['Tipos de Soro'].notna()]  # remove linhas nulas
-    df = df[df['Tipos de Soro'].str.contains(soro_necessario, case=False, na=False)]
+    df = df[df['tipos_de_soro'].notna()]  # remove linhas nulas
+    df = df[df['tipos_de_soro'].str.contains(soro_necessario, case=False, na=False)]
     return df
 
 
@@ -173,7 +173,7 @@ def processar_acidente(endereco_origem, animal, modo_transporte, geojson_path, c
 
     posto_mais_proximo = postos_validos.nsmallest(1, 'Distância (km)').iloc[0].to_dict()
     top_10 = postos_validos.nsmallest(10, 'Distância (km)')[[
-        'Unidade de Saúde', 'Endereço', 'Cidade', 'Telefone', 'Tipos de Soro', 'Distância (km)', 'Tempo estimado (min)'
+        'Unidade de Saúde', 'Endereço', 'Cidade', 'Telefone', 'tipos_de_soro', 'Distância (km)', 'Tempo estimado (min)'
     ]].to_dict(orient='records')
 
     #mapa = gerar_mapa_folium(postos_validos, origem_coords)
