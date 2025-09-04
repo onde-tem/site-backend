@@ -210,16 +210,23 @@ def resumo_estatisticas(
 #         df = pd.read_sql(text(query), conn, params=params)
 #     return prever_casos_por_idade(df, ano, municipio)
 
+import os
+
+
 @app.get("/busca/postos-mais-proximo")
 def buscar_postos_proximos(endereco: str = Query(..., description="Endereço de origem"), animal: str = Query(..., description="Animal causador do acidente"), transporte: str = Query(..., description="Modo de transporte (carro, bicicleta, caminhando)")):
+    base_dir = os.path.dirname(__file__)  # pasta onde está o main.py ou busca.py
+
+    geojson_path = os.path.join(base_dir, "geojson_sp.json")
+    caminho_csv = os.path.join(base_dir, "postos_geolocalizados.csv")
     try:
         resultado = processar_acidente(
-            endereco_origem=endereco,
-            animal=animal,
-            modo_transporte=transporte,
-            geojson_path="geojson_sp.json",
-            caminho_csv="postos_geolocalizados.csv",
-        )
+        endereco_origem=endereco,
+        animal=animal,
+        modo_transporte=transporte,
+        geojson_path=geojson_path,
+        caminho_csv=caminho_csv,
+    )
 
         if "erro" in resultado:
             return JSONResponse(status_code=400, content=resultado)
